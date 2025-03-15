@@ -37,63 +37,56 @@ jobs:
           nuget-version: 'latest'
 
       # packages.configスタイルのパッケージ復元
-      - name: Restore NuGet packages (packages.config)
+      - name: Restore NuGet packages
         run: |
           nuget restore Ched.sln
 
-      # 新しいスタイルのパッケージ復元
-      - name: Restore dependencies (.NET Core style)
-        run: dotnet restore
-
-      # x86アーキテクチャを指定して単一ファイル発行ビルド
-      - name: Build Single File Application for x86
+      # x86アーキテクチャを指定してビルド
+      - name: Build Application for x86
         run: |
-          msbuild Ched/Ched.csproj /t:Publish /p:Configuration=Release /p:Platform=x86 /p:PublishProfile=FolderProfile /p:PublishSingleFile=true /p:IncludeNativeLibrariesForSelfExtract=true
+          msbuild Ched.sln /p:Configuration=Release /p:Platform=x86 
 
       - name: Create release folder
         run: |
           mkdir ChedRelease
 
+      # 正確なパスからファイルをコピー
       - name: Copy files to release folder
         run: |
-          # ビルド出力を探してデバッグ表示
-          dir Ched/bin/ -Recurse
+          # 確認されたパスからChed.exeをコピー
+          cp "Ched/bin/x86/Release/Ched.exe" "ChedRelease/"
           
-          # 出力ファイルをコピー (様々なパターンを試す)
-          cp Ched/bin/x86/Release/*/publish/Ched.exe ChedRelease/ || echo "Path 1 failed"
-          cp Ched/bin/Release/x86/*/publish/Ched.exe ChedRelease/ || echo "Path 2 failed"
-          cp Ched/bin/x86/Release/Ched.exe ChedRelease/ || echo "Path 3 failed"
-          cp Ched/bin/Release/Ched.exe ChedRelease/ || echo "Path 4 failed"
+          # 依存関係のあるDLLも全てコピー
+          cp "Ched/bin/x86/Release/*.dll" "ChedRelease/"
+          cp "Ched/bin/x86/Release/*.config" "ChedRelease/"
           
-          # ビルド出力ディレクトリから直接コピー（最終手段）
-          dir Ched/bin/ -Recurse | Where-Object { $_.Name -eq "Ched.exe" } | ForEach-Object {
-            Write-Host "Found Ched.exe at: $($_.FullName)"
-            cp $_.FullName ChedRelease/
-          }
+          # bassdllをコピー
+          cp "Ched/bin/x86/Release/bass*.dll" "ChedRelease/"
+          
+          # 音楽ファイル
+          cp "Ched/bin/x86/Release/*.mp3" "ChedRelease/" || echo "No mp3 files"
+          
+          # Addonフォルダをコピー
+          mkdir -p "ChedRelease/Addon"
+          cp "Ched/bin/x86/Release/Addon/*" "ChedRelease/Addon/" || echo "No addon files"
           
           # 必要な追加ファイル
-          cp LICENSE.txt README.md ChedRelease/ || echo "Some documentation files may not exist"
+          cp "LICENSE.txt" "README.md" "ChedRelease/" || echo "Some documentation files may not exist"
         shell: pwsh
 
-      - name: Check if Ched.exe exists
+      - name: Verify Ched.exe exists
         run: |
-          if (Test-Path ChedRelease/Ched.exe) {
+          if (Test-Path "ChedRelease/Ched.exe") {
             Write-Host "Ched.exe successfully copied to release folder"
           } else {
-            # 最後の手段：ビルド出力ディレクトリの内容をすべてコピー
-            Get-ChildItem -Path Ched/bin/x86/Release/ -Recurse | Where-Object { !$_.PSIsContainer } | ForEach-Object {
-              $targetPath = Join-Path -Path "ChedRelease" -ChildPath $_.Name
-              Copy-Item -Path $_.FullName -Destination $targetPath -Force
-              Write-Host "Copied $($_.Name) to release folder"
-            }
-          
-            Write-Host "Failed to find Ched.exe, copied all files from release directory instead"
+            Write-Error "Ched.exe not found in release folder!"
+            exit 1
           }
         shell: pwsh
 
       - name: Create zip archive
         run: |
-          Compress-Archive -Path ChedRelease/* -DestinationPath Ched-Release.zip -Force
+          Compress-Archive -Path "ChedRelease/*" -DestinationPath "Ched-Release.zip" -Force
         shell: pwsh
 
       - name: Upload build artifacts
@@ -118,8 +111,8 @@ jobs:
             
             ## インストール方法
             1. `Ched-Release.zip` をダウンロードして解凍
-            2. 解凍したフォルダ内の `Ched.exe` を実行するだけで利用できます
-          draft: false
-          prerelease: false
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+            2. 解凍したフォルダ内の `Ched.exe` を実行してください
+            
+            ## 注意事項
+            * このアプリケーションには多数の依存ファイルが必要です
+            * 全てのファイルを同じフォルダに配
