@@ -50,34 +50,54 @@ jobs:
         run: |
           mkdir ChedRelease
 
-      # 正確なパスからファイルをコピー
+      # 正確なパスからファイルをコピー (PowerShellコマンドを修正)
       - name: Copy files to release folder
         run: |
           # 確認されたパスからChed.exeをコピー
-          cp "Ched/bin/x86/Release/Ched.exe" "ChedRelease/"
+          Copy-Item -Path "Ched/bin/x86/Release/Ched.exe" -Destination "ChedRelease/" -Force
           
           # 依存関係のあるDLLも全てコピー
-          cp "Ched/bin/x86/Release/*.dll" "ChedRelease/"
-          cp "Ched/bin/x86/Release/*.config" "ChedRelease/"
+          Copy-Item -Path "Ched/bin/x86/Release/*.dll" -Destination "ChedRelease/" -Force
+          Copy-Item -Path "Ched/bin/x86/Release/*.config" -Destination "ChedRelease/" -Force
           
           # bassdllをコピー
-          cp "Ched/bin/x86/Release/bass*.dll" "ChedRelease/"
+          Copy-Item -Path "Ched/bin/x86/Release/bass*.dll" -Destination "ChedRelease/" -Force
           
           # 音楽ファイル
-          cp "Ched/bin/x86/Release/*.mp3" "ChedRelease/" || echo "No mp3 files"
+          if (Test-Path "Ched/bin/x86/Release/*.mp3") {
+            Copy-Item -Path "Ched/bin/x86/Release/*.mp3" -Destination "ChedRelease/" -Force
+          } else {
+            Write-Host "No mp3 files found"
+          }
           
           # Addonフォルダをコピー
-          mkdir -p "ChedRelease/Addon"
-          cp "Ched/bin/x86/Release/Addon/*" "ChedRelease/Addon/" || echo "No addon files"
+          if (-not (Test-Path "ChedRelease/Addon")) {
+            New-Item -Path "ChedRelease/Addon" -ItemType Directory -Force
+          }
+          
+          if (Test-Path "Ched/bin/x86/Release/Addon/*") {
+            Copy-Item -Path "Ched/bin/x86/Release/Addon/*" -Destination "ChedRelease/Addon/" -Force
+          } else {
+            Write-Host "No addon files found"
+          }
           
           # 必要な追加ファイル
-          cp "LICENSE.txt" "README.md" "ChedRelease/" || echo "Some documentation files may not exist"
+          if (Test-Path "LICENSE.txt") {
+            Copy-Item -Path "LICENSE.txt" -Destination "ChedRelease/" -Force
+          }
+          
+          if (Test-Path "README.md") {
+            Copy-Item -Path "README.md" -Destination "ChedRelease/" -Force
+          }
         shell: pwsh
 
       - name: Verify Ched.exe exists
         run: |
           if (Test-Path "ChedRelease/Ched.exe") {
             Write-Host "Ched.exe successfully copied to release folder"
+            Get-ChildItem -Path "ChedRelease" -Recurse | ForEach-Object {
+              Write-Host $_.FullName
+            }
           } else {
             Write-Error "Ched.exe not found in release folder!"
             exit 1
@@ -115,4 +135,8 @@ jobs:
             
             ## 注意事項
             * このアプリケーションには多数の依存ファイルが必要です
-            * 全てのファイルを同じフォルダに配
+            * 全てのファイルを同じフォルダに配置してください
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
