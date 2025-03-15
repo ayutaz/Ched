@@ -1,6 +1,6 @@
 # Ched
 
-[![Build status](https://ci.appveyor.com/api/projects/status/pq1lght43m7ytlv1?svg=true)](https://ci.appveyor.com/project/paralleltree/ched)
+[![Build Pass](https://github.com/ayutaz/Ched/actions/workflows/build.yml/badge.svg)](https://github.com/ayutaz/Ched/actions/workflows/build.yml)
 
 某スライドしてヘドバンする音ゲーの譜面エディタ
 
