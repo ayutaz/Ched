@@ -1,0 +1,68 @@
+﻿name: Build and Release
+
+on:
+  push:
+    branches: [ main]
+    tags:
+      - 'v*'
+  pull_request:
+    branches: [ main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest  # WPFアプリケーションのため
+
+    steps:
+      - uses: actions/checkout@v4.2.2
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4.3.0
+        with:
+          dotnet-version: 9.0.x  # プロジェクトで使用している.NETバージョンに合わせる
+
+      - name: Restore dependencies
+        run: dotnet restore
+
+      # 単一ファイル発行による最適化ビルド
+      - name: Build Single File Application
+        run: |
+          dotnet publish Ched/Ched.csproj -c Release -r win-x64 --self-contained true /p:PublishSingleFile=true /p:IncludeNativeLibrariesForSelfExtract=true /p:EnableCompressionInSingleFile=true
+
+      - name: Create release folder
+        run: |
+          mkdir ChedRelease
+
+      - name: Copy files to release folder
+        run: |
+          # 単一ファイル出力をコピー
+          cp Ched/bin/Release/net*/win-x64/publish/Ched.exe ChedRelease/
+          
+          # 必要な追加ファイル（ドキュメントなど）
+          cp LICENSE.txt README.md ChedRelease/ || echo "Some documentation files may not exist"
+        shell: bash
+
+      - name: Create zip archive
+        run: |
+          Compress-Archive -Path ChedRelease/* -DestinationPath Ched-Release.zip
+        shell: pwsh
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v2
+        with:
+          name: Ched-Release
+          path: ChedRelease/
+      
+      # タグプッシュ時のみリリース作成
+      - name: Create Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        id: create_release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            ChedRelease/**/*
+          name: Release ${{ github.ref_name }}
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
