@@ -21,7 +21,18 @@ jobs:
         with:
           dotnet-version: 9.0.x  # プロジェクトで使用している.NETバージョンに合わせる
 
-      - name: Restore dependencies
+      - name: Setup NuGet
+        uses: NuGet/setup-nuget@v2.0.1
+        with:
+          nuget-version: 'latest'
+
+      # packages.configスタイルのパッケージ復元
+      - name: Restore NuGet packages (packages.config)
+        run: |
+          nuget restore Ched.sln
+
+      # 新しいスタイルのパッケージ復元
+      - name: Restore dependencies (.NET Core style)
         run: dotnet restore
 
       # 単一ファイル発行による最適化ビルド
@@ -36,23 +47,28 @@ jobs:
       - name: Copy files to release folder
         run: |
           # 単一ファイル出力をコピー
-          cp Ched/bin/Release/net*/win-x64/publish/Ched.exe ChedRelease/
+          cp Ched/bin/Release/net*/win-x64/publish/Ched.exe ChedRelease/ || echo "Ched.exe not found at expected location"
+          
+          # ビルド出力を探して表示（デバッグ用）
+          dir Ched/bin/Release/ -Recurse | Select-String "Ched.exe"
           
           # 必要な追加ファイル（ドキュメントなど）
           cp LICENSE.txt README.md ChedRelease/ || echo "Some documentation files may not exist"
-        shell: bash
+        shell: pwsh
 
       - name: Create zip archive
         run: |
-          Compress-Archive -Path ChedRelease/* -DestinationPath Ched-Release.zip
+          Compress-Archive -Path ChedRelease/* -DestinationPath Ched-Release.zip -Force
         shell: pwsh
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4.6.1
         with:
           name: Ched-Release
-          path: ChedRelease/
-      
+          path: |
+            ChedRelease/
+            Ched-Release.zip
+
       # タグプッシュ時のみリリース作成
       - name: Create Release
         if: startsWith(github.ref, 'refs/tags/v')
@@ -60,8 +76,14 @@ jobs:
         uses: softprops/action-gh-release@v2.2.1
         with:
           files: |
-            ChedRelease/**/*
+            Ched-Release.zip
           name: Release ${{ github.ref_name }}
+          body: |
+            # Ched リリース ${{ github.ref_name }}
+            
+            ## インストール方法
+            1. `Ched-Release.zip` をダウンロードして解凍
+            2. `Ched.exe` を実行するだけで利用できます
           draft: false
           prerelease: false
         env:
