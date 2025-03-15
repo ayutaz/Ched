@@ -104,18 +104,19 @@ jobs:
           }
         shell: pwsh
 
-      - name: Create zip archive
+      # ZIPファイルを作成 (リリース用のみ)
+      - name: Create release zip archive
+        if: startsWith(github.ref, 'refs/tags/v')
         run: |
           Compress-Archive -Path "ChedRelease/*" -DestinationPath "Ched-Release.zip" -Force
         shell: pwsh
 
+      # アーティファクトとしてフォルダをアップロード（ZIP化は自動的に行われる）
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4.6.1
         with:
           name: Ched-Release
-          path: |
-            ChedRelease/
-            Ched-Release.zip
+          path: ChedRelease/
 
       # タグプッシュ時のみリリース作成
       - name: Create Release
